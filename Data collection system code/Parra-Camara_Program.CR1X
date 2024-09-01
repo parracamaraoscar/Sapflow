@@ -1,0 +1,235 @@
+'Parra Sapflow 22/02/22
+'Linea 212 cuantos datos guarda en Table 1 de que tiempo a que tiempo.
+'Linea 218 Controla a que segundo s estabilizan los datos
+
+'Modificado por Parra, Yepez & Mendez
+AngleDegrees
+'{CR1000X}
+'External heat ratio sap flow
+'Control 1 
+'Control 2 
+'Control 3 
+'Control 4 MUX clock
+'Control 5 MUX reset
+'Control 6
+'Control 7
+'Control 8
+'Flag 1 Initiate heat pulse
+'Flag 2 Record heat pulse
+'Flag 3 Save the next raw heat pulse
+'Flag 4
+'Flag 5
+'Flag 6
+'Flag 7 Save raw temperature data before and during heat pulse until manually set low
+'Flag 8
+
+'----DECLARATIONS----'
+Public BattV, Timer0
+Public Flag(8) As Boolean
+Public rtime(9)
+Public day_now, hhmm
+Public counter, counter2
+
+Public RTemp_C
+'Public RTemp
+Public Tp_initl(28)'EDITAR
+Public Tp1(28) 'EDITAR
+Public dTp1(28)'EDITAR
+Public dTdp1_1
+Public dTdp1_2
+Public dTdp1_3
+Public dTdp1_4
+Public dTdp1_5
+Public dTdp1_6
+Public dTdp1_7
+Public dTdp1_8
+Public dTdp1_9
+Public dTdp1_10
+Public dTdp1_11
+Public dTdp1_12
+Public dTdp1_13
+Public dTdp1_14
+
+'EDITAR
+Alias dTp1(2)=dTd1
+Alias dTp1(3)=dTp2
+Alias dTp1(4)=dTd2
+Alias dTp1(5)=dTp3
+Alias dTp1(6)=dTd3
+Alias dTp1(7)=dTp4
+Alias dTp1(8)=dTd4
+Alias dTp1(9)=dTp5
+Alias dTp1(10)=dTd5
+Alias dTp1(11)=dTp6
+Alias dTp1(12)=dTd6
+Alias dTp1(13)=dTp7
+Alias dTp1(14)=dTd7
+Alias dTp1(15)=dTp8
+Alias dTp1(16)=dTd8
+Alias dTp1(17)=dTp9
+Alias dTp1(18)=dTd9
+Alias dTp1(19)=dTp10
+Alias dTp1(20)=dTd10
+Alias dTp1(21)=dTp11
+Alias dTp1(22)=dTd11
+Alias dTp1(23)=dTp12
+Alias dTp1(24)=dTd12
+Alias dTp1(25)=dTp13
+Alias dTp1(26)=dTd13
+Alias dTp1(27)=dTp14
+Alias dTp1(28)=dTd14
+
+'EDITAR
+Alias rtime(1) = year
+Alias rtime(2) = month
+Alias rtime(3) = day1
+Alias rtime(4) = hour
+Alias rtime(5) = minute
+Alias rtime(6) = second
+Alias rtime(7) = uSecond
+Alias rtime(8) = WeekDay
+Alias rtime(9) = day_of_year
+
+Units BattV = Volts
+'Declare private variables'
+Dim Tref,time
+'Dim SlrMv
+Dim Tdelay(20)
+Dim Temp_out_p(10,20), Tp1_out(10,20)
+Dim ii,jj
+
+'Declare constants'
+Const no_probes = 14 'set the number of probes' 'EDITAR
+Const no_thermocouples = 28 'd + p modificado luis original 6'  'EDITAR
+Const startscan = 50
+Const endscan = 70
+Const timeout = 200
+Const htr_int = 6000 'set heater interval'
+Const htr_per = 10 'set the return period'
+
+'----OUTPUT SECTION----'
+DataTable(Table1,Flag(2),-1)
+Sample(1,year,FP2)
+Sample(1,hour,FP2)
+Sample(1,day_now,FP2)
+Sample(1,hhmm,FP2)
+Sample(1,second,FP2)
+Sample(1,RTemp_C,FP2)
+Sample(no_thermocouples,Tp_initl,FP2)
+Sample(no_thermocouples,Tp1,FP2)
+Sample(no_thermocouples,dTp1,FP2)
+Sample(1,BattV,FP2)
+EndTable
+
+'----SUBROUTINES----'
+'----PROGRAM----'
+Sub reset_00min
+Flag(1) = True
+Timer0 = Timer(0,msec,2)/1000
+counter = 0
+day_now = day_of_year
+hhmm = 100*hour + minute
+  
+PortSet(C5,1)
+ 
+For ii = 1 To no_thermocouples
+PulsePort(C4,10000)
+TCDiff(Tp_initl(ii),1,AutorangeC,8,TypeT,RTemp_C,True,0,60,1,0)
+  
+Next ii 
+PortSet(C5,0)
+  
+'Fire pulse
+SW12(SW12_1,1)
+Delay(0,htr_int,msec)
+SW12(SW12_1,0)
+
+Flag(1) = false
+Flag(2) = true
+End Sub
+
+BeginProg
+
+Scan(1,sec,1,0)
+Tref = 0
+RealTime(rtime)
+Battery(BattV)
+
+If  TimeIntoInterval(0,10,min)
+Call reset_00min
+Else If Flag(1) = True Then
+Call reset_00min
+EndIf
+
+If  Flag(2) = True Then
+PortSet(C5,1)
+counter = counter + 1
+Timer0 = Timer(0,msec,4)/1000.
+Tdelay(counter) = Timer0
+PanelTemp(RTemp_C,_50Hz)
+
+For ii = 1 To no_thermocouples
+PulsePort(C4,10000)
+			   TCDiff(Tp1(ii),1,AutorangeC,8,TypeT,RTemp_C,True,0,_50Hz,1,0)
+
+Tp1_out(ii,counter) = Tp1(ii)
+      
+'Calculate delta T from starting T
+dTp1(ii) = Tp1(ii) - Tp_initl(ii)
+          
+dTp1(ii) = Tp1(ii) - Tp_initl(ii)
+dTdp1_1 = dTd1 / dTp1
+dTdp1_2 = dTd2 / dTp2
+dTdp1_3 = dTd3 / dTp3
+dTdp1_4 = dTd4 / dTp4
+dTdp1_5 = dTd5 / dTp5
+dTdp1_6 = dTd6 / dTp6
+dTdp1_7 = dTd7 / dTp7 
+dTdp1_8 = dTd8 / dTp8
+dTdp1_9 = dTd9 / dTp9
+dTdp1_10 = dTd10 / dTp10
+dTdp1_11 = dTd11 / dTp11
+dTdp1_12 = dTd12 / dTp12
+dTdp1_13 = dTd13 / dTp13
+dTdp1_14 = dTd14 / dTp14
+          
+Next ii
+        
+'GUARDAR CADA CIERTO TIEMPO DEL CONTADOR'
+If(counter > 1 AND counter<=200) 'Guardar 200 datos
+CallTable Table1
+EndIf   
+       
+'Stop monitoring heat pulse and outputing raw data if counter = F
+If counter >= 1 Then   'Variable que controla la estabilizacion de los datos
+Flag(3) = False
+Flag(5) = False
+PortSet(C5,0)
+EndIf
+        
+EndIf
+   
+Next Scan
+
+SlowSequence
+Scan(25,sec,0,0)
+
+If Flag(7) = True Then
+counter2 = counter2 + 1
+For jj = 1 To counter
+time = Tdelay(jj)
+For ii = 1 To no_thermocouples
+Temp_out_p(ii) = Tp1_out(ii,jj)
+Next ii
+         
+Next jj
+If counter > 200 Then Flag(7) = false
+
+EndIf
+
+NextScan
+
+EndSequence
+
+EndProg
+
